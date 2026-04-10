@@ -49,11 +49,32 @@ You say: "I have an idea for a caching layer"
 
 **Key rule:** Production steps auto-advance. Decision steps wait for you.
 
+### v2.0: Stage Handoff Contracts
+
+Every pipeline stage now emits a structured handoff when it completes:
+
+```yaml
+handoff:
+  from: writing-plans
+  status: ok              # ok | blocked | rework
+  artifact: docs/plan.md  # what was produced
+  blockers: []            # what's unresolved
+  next: multi-role-review # recommended next stage
+  decisions_needed: []    # what needs human judgment
+```
+
+This replaces the previous descriptive state tracking with an enforced protocol. No handoff = stage not complete. Combined with RecallNest checkpoints at every handoff, pipeline state survives compacts and window switches.
+
 ## What's Inside
 
 ### 1. Workflow Orchestrator (`/workflow-orchestrator`)
 
 The routing layer. Parses your natural language, figures out which pipeline stage you're at, and dispatches the right skill. Handles stage transitions, backtracking ("this direction is wrong"), and skip-ahead ("just start coding, I have a plan").
+
+**v2.0 additions:**
+- **Stage Handoff Contract** -- every stage must emit a structured handoff before the pipeline advances
+- **Capability Detection** -- checks if downstream skills exist before routing; gracefully falls back to manual mode if missing
+- **Checkpoint discipline** -- persistent state at every handoff and before every human decision point
 
 ### 2. Multi-Role Review (`/multi-role-review`)
 
@@ -68,7 +89,21 @@ Four independent sub-agents review your plan in parallel, each from a distinct p
 
 After individual reviews, the system cross-examines for blind spots and extracts core tensions -- the trade-offs that need your judgment. Inspired by the three-perspective cross-examination pattern from [content-alchemy](https://github.com/AliceLJY/content-alchemy).
 
-### 3. Ideation Map (`/ideation-map`)
+**v2.0 additions:**
+- **Strict mode is now default** -- any "Needs rework" verdict blocks execution automatically
+- **Quality gate escalation** -- 2+ "Go with concerns" with shared issues also requires explicit user response
+- **Shallow review detection** -- all 4 roles saying "Go" with zero concerns triggers a depth warning
+
+### 3. Plan Rework (`/plan-rework`) *NEW*
+
+Consumes the review report and revises the plan. Keeps review and revision as separate responsibilities (the reviewer doesn't fix, the fixer doesn't judge).
+
+- Extracts only the must-fix items from the review report
+- Modifies the plan with annotated changes
+- Runs a lightweight 2-role re-review to verify fixes
+- Maximum 1 rework round, then escalates to human
+
+### 4. Ideation Map (`/ideation-map`)
 
 Meta-research before formal research. When you have a vague direction but don't know what to investigate, this skill:
 
@@ -87,7 +122,9 @@ cd workflow-orchestrator
 bash install.sh
 ```
 
-This copies the three skills into `~/.claude/skills/`. Restart Claude Code to activate.
+This copies four skills into `~/.claude/skills/`. Restart Claude Code to activate.
+
+The pipeline also depends on external skills from `superpowers`. If any are missing, the orchestrator falls back to manual mode -- it never blocks.
 
 ## Usage Examples
 
@@ -147,9 +184,10 @@ You:  "Ship it"
 
 ```
 skills/
-  multi-role-review/SKILL.md    # 4-role parallel plan review
-  ideation-map/SKILL.md         # Cross-domain possibility mapping
   workflow-orchestrator/SKILL.md # Intent detection + pipeline routing
+  multi-role-review/SKILL.md    # 4-role parallel plan review
+  plan-rework/SKILL.md          # Review-driven plan revision
+  ideation-map/SKILL.md         # Cross-domain possibility mapping
 install.sh                       # One-command installer
 docs/
   research.md                    # Design research notes

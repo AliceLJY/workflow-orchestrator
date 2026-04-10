@@ -11,7 +11,7 @@ trigger:
 allowed-tools:
   - All
 metadata:
-  version: "1.0"
+  version: "2.0"
   auto-trigger: false
 ---
 
@@ -34,134 +34,118 @@ Step 6: finishing            — 合并、测试、发布
 Step 7: compound            — 知识沉淀到 RecallNest
 ```
 
-## 意图识别规则
+---
 
-### 探索阶段（→ ideation-map）
+## Stage Handoff Contract（阶段交接协议）
 
-用户信号：
-- "我想做个..."
-- "有个想法..."
-- "你觉得...可以吗"
-- "帮我想想..."
-- "有什么方向"
-- 模糊的、没有具体 spec 的描述
+**每个阶段完成时，必须 emit 一份结构化交接单。** 这不是建议，是强制协议。没有交接单 = 阶段没完成。
 
-判断标准：**用户还不知道要做什么，需要看全貌。**
+### 交接单格式
 
-### 细化阶段（→ brainstorming）
+```yaml
+handoff:
+  from: <当前阶段名>          # e.g. "writing-plans"
+  status: ok | blocked | rework  # 阶段结果
+  artifact: <产物文件路径>      # e.g. "docs/plan.md"
+  blockers: []                  # 未解决的阻塞项（空 = 无阻塞）
+  next: <推荐的下一阶段>        # e.g. "multi-role-review"
+  decisions_needed: []          # 需要用户做的决策（空 = 可自动推进）
+```
 
-用户信号：
-- "我想做 [具体的东西]"（有明确目标）
-- "这个方向我选了，帮我细化"
-- ideation-map 之后用户选了方向
-- "我要 [功能描述]"
+### 各阶段交接规则
 
-判断标准：**用户知道方向，需要细化为 spec。**
+| 阶段 | artifact | 自动推进条件 | 需人工条件 |
+|------|----------|-------------|-----------|
+| ideation-map | `ideation-map.md` | — | 用户选方向 |
+| brainstorming | spec 文档 | — | 用户确认 spec |
+| writing-plans | `plan.md` | status=ok → auto multi-role-review | — |
+| multi-role-review | `review-report.md` | — | 用户看完决定 |
+| execution | 代码文件 | status=ok → auto code-review | status=blocked → 报告用户 |
+| code-review | review 报告 | status=ok → auto finishing | status=rework → 用户决定 |
+| finishing | merge/tag | status=ok → auto compound | — |
+| compound | RecallNest checkpoint | 管道结束 | — |
 
-### 计划阶段（→ writing-plans）
+### Checkpoint 纪律
 
-用户信号：
-- "开始规划吧"
-- "写个计划"
-- brainstorming 完成后自动流转
-- 用户提供了完整的 spec/设计文档
+- **每次 emit 交接单时**，同步调用 `checkpoint_session` 把当前管道状态持久化
+- **每次等人工确认前**，必须先 checkpoint（防 compact/换窗口丢状态）
+- Checkpoint 内容 = 当前交接单 + 已完成阶段列表 + pending decisions
 
-判断标准：**spec 已就绪，需要拆成可执行步骤。**
+---
 
-### 审查阶段（→ multi-role-review）
+## 意图路由表
 
-用户信号：
-- writing-plans 完成后**自动触发**（无需用户说）
-- "帮我审一下这个计划"
-- "这个计划有什么问题吗"
+根据用户的话判断进入哪个阶段。**只看信号，不展开执行细节。**
 
-判断标准：**plan 已写完，还没开始执行。**
+| 阶段 | 用户信号 | 判断标准 |
+|------|---------|---------|
+| ideation-map | "想做个..." "有想法" "帮我想想" "什么方向" / 模糊描述 | 不知道做什么，需看全貌 |
+| brainstorming | "做 [具体事]" "方向选了，细化" "我要 [功能]" | 知道方向，需细化为 spec |
+| writing-plans | "规划吧" "写计划" / spec 已就绪 | 有 spec，需拆步骤 |
+| multi-role-review | plan 完成后自动 / "审一下计划" | plan 写完，未执行 |
+| execution | "开干" "搞吧" "执行计划" / review 通过+用户确认 | plan 已审查，用户确认 |
+| code-review | 执行完成后自动 / "审代码" "检查一下" | 代码写完，需质量检查 |
+| finishing | "发布" "合并" "上线" / review 通过 | 代码已审查，准备发布 |
+| compound | finishing 后自动 / "总结" "记下来" | 项目完成，沉淀经验 |
 
-### 执行阶段（→ subagent-driven-development / executing-plans）
+---
 
-用户信号：
-- "开干" / "开始" / "搞吧"
-- multi-role-review 通过后用户确认
-- "执行计划"
+## Capability Detection（下游 Skill 检测）
 
-判断标准：**plan 已审查通过，用户确认执行。**
+**进入任何阶段前，先确认该阶段依赖的 skill 可用。**
 
-### 审查阶段（→ requesting-code-review）
+### 依赖映射
 
-用户信号：
-- 执行完成后**自动触发**
-- "帮我审一下代码"
-- "检查一下"
+| 阶段 | 依赖的 Skill | 缺失时的 Fallback |
+|------|-------------|-------------------|
+| Step 0 | ideation-map | 内置，无外部依赖 |
+| Step 1 | superpowers:brainstorming | 手动：直接和用户对话细化 spec |
+| Step 2 | superpowers:writing-plans | 手动：直接写 plan.md |
+| Step 3 | multi-role-review | 内置，无外部依赖 |
+| Step 4 | superpowers:subagent-driven-development | 手动：逐步执行 plan，不并行 |
+| Step 5 | superpowers:requesting-code-review | 手动：自己做 code review |
+| Step 6 | superpowers:finishing-a-development-branch | 手动：git merge + test + tag |
+| Step 7 | RecallNest MCP | 跳过沉淀，提醒用户手动记录 |
 
-判断标准：**代码已写完，需要质量检查。**
+### 检测逻辑
 
-### 收尾阶段（→ finishing-a-development-branch）
+1. 进入阶段前，检查 skill 是否存在（尝试识别 skill 名，不实际调用）
+2. **skill 存在** → 正常调用
+3. **skill 不存在** → 告诉用户 "这一步我没有自动化工具，我来手动做"，然后用基础能力完成
+4. **绝不卡住** — 缺 skill 是降级，不是停机
 
-用户信号：
-- "发布" / "合并" / "上线"
-- code review 通过后
-
-判断标准：**代码已审查通过，准备合并/发布。**
-
-### 沉淀阶段（→ RecallNest compound）
-
-用户信号：
-- finishing 完成后**自动触发**
-- "总结一下" / "记下来"
-
-判断标准：**项目完成，需要把经验沉淀。**
+---
 
 ## 自动流转 vs 人工确认
 
-### 自动流转（不问用户）
-- writing-plans → multi-role-review（写完 plan 自动审查）
-- execution 完成 → code-review（写完代码自动审查）
-- finishing 完成 → compound（发布完自动沉淀）
+### 自动流转（交接单 status=ok 且 decisions_needed 为空）
+- writing-plans → multi-role-review
+- execution → code-review
+- finishing → compound
 
-### 需要人工确认（必须等用户说话）
-- ideation-map → brainstorming（用户选方向后才继续）
-- brainstorming → writing-plans（用户确认 spec 后才写 plan）
-- multi-role-review → execution（用户看完审查结论后决定）
+### 需要人工确认（decisions_needed 非空）
+- ideation-map → brainstorming（用户选方向）
+- brainstorming → writing-plans（用户确认 spec）
+- multi-role-review → execution（用户看完审查结论）
 - code-review 有问题 → 用户决定修还是忽略
 
 **原则：产出型步骤自动流转，决策型步骤等用户。**
 
-## 状态追踪
-
-用 RecallNest checkpoint 记录当前流水线状态：
-
-```markdown
-Pipeline: [项目名]
-Current Stage: [当前阶段]
-Completed: [已完成的阶段列表]
-Pending Decision: [等用户决定什么]
-Artifacts:
-  - ideation-map: [文件路径]
-  - spec: [文件路径]
-  - plan: [文件路径]
-  - review-report: [文件路径]
-```
-
-换窗口时通过 `resume_context` 恢复状态，继续流水线。
+---
 
 ## 跳步与回溯
 
 ### 跳步（用户明确要求时允许）
-- "不用 ideation 了，直接帮我规划" → 跳到 brainstorming/writing-plans
-- "不用审查，直接开干" → 跳过 multi-role-review（但发出警告）
+- "不用 ideation 了，直接规划" → 跳到 brainstorming/writing-plans
+- "不用审查，直接开干" → 跳过 multi-role-review（**发出警告**）
 - "我有现成的 plan" → 从 multi-role-review 开始
 
-### 回溯（审查发现问题时）
-- multi-role-review 说 Needs rework → 回到 writing-plans 修改
-- code-review 发现架构问题 → 回到 plan 层面修改
-- 用户说"方向不对" → 回到 ideation-map 重新铺
+### 回溯（交接单 status=rework 时）
+- multi-role-review → 回到 writing-plans（自动触发 plan-rework）
+- code-review 发现架构问题 → 回到 plan 层面
+- 用户说"方向不对" → 回到 ideation-map
 
-## 错误处理
-
-- 某个阶段的 skill 不存在 → 降级到手动模式，告诉用户
-- 子 agent 失败 → 重试一次，再失败升级给用户
-- 用户意图不明确 → 问一个澄清问题（只问一个）
-- 流水线被打断（换窗口） → checkpoint + resume
+---
 
 ## 与用户的对话风格
 
@@ -178,11 +162,14 @@ Artifacts:
 ✅ "开始干活了，分了 5 个小任务并行跑"
 ```
 
+---
+
 ## 关键原则
 
 1. **用户永远说人话** — 你来翻译成 skill 调用
-2. **产出步骤自动流转** — 不问多余的确认
-3. **决策步骤等用户** — 不替用户做选择
-4. **结果写文件** — 主对话保持干净
-5. **状态可恢复** — 换窗口不丢进度
-6. **降级优雅** — 缺 skill 就手动做，不卡住
+2. **每步必交接** — 没有交接单 = 阶段没完成
+3. **缺 skill 不停机** — 降级到手动，绝不卡住
+4. **产出步骤自动流转** — 不问多余的确认
+5. **决策步骤等用户** — 不替用户做选择
+6. **结果写文件** — 主对话保持干净
+7. **状态可恢复** — checkpoint 在每次交接和等人时触发
