@@ -14,7 +14,7 @@ trigger:
 allowed-tools:
   - All
 metadata:
-  version: "1.0"
+  version: "2.0"
   auto-trigger: false
 ---
 
@@ -212,14 +212,26 @@ PROJECT_CONTEXT="<项目关键文件/架构说明>"
 - [ ] [具体修改建议2]
 ```
 
-### Step 5: 呈现给用户
+### Step 5: Emit 交接单 + 呈现给用户
+
+审查完成后，**先 emit 交接单，再呈现摘要**：
+
+```yaml
+handoff:
+  from: multi-role-review
+  status: ok | rework       # 4 角色全 Go = ok；任一 Needs rework = rework
+  artifact: "{plan-dir}/review-report.md"
+  blockers: ["问题1", ...]  # status=rework 时列出必须修的问题
+  next: execution | plan-rework  # ok → execution；rework → plan-rework
+  decisions_needed: ["用户确认是否执行"]  # review 结果始终需要用户确认
+```
 
 在主对话中只显示**精炼摘要**：
 
 ```
 审查完毕。4 个角色都看过了：
 
-总评：[Go with concerns]
+总评：[Go / Go with concerns / Needs rework]
 高优先级：[1-2 个共振问题]
 核心张力：[一句话]
 
@@ -234,21 +246,31 @@ PROJECT_CONTEXT="<项目关键文件/架构说明>"
 writing-plans 完成
     ↓ 自动触发
 multi-role-review
-    ↓ 用户确认
-subagent-driven-development / executing-plans
+    ↓ status=ok → 用户确认 → execution
+    ↓ status=rework → 触发 plan-rework → 再过一轮 review
 ```
 
 ### 独立使用
 用户随时可以说"帮我审查一下这个 plan"，手动触发。
+
+## 质量门禁（默认启用）
+
+**严格模式为默认行为**，不需要手动开启：
+
+- **任一角色 "Needs rework"** → 交接单 status=rework，自动阻止进入执行阶段
+- **2+ 角色 "Go with concerns" 且共振问题 > 0** → 交接单标注 blockers，用户必须明确回应后才继续
+- **4 角色全 Go 且无关注项** → 触发质疑："审查深度可能不够，建议复查"
+- 用户可以说"跳过审查直接干"来 override，但编排层会发出警告
+
+### 宽松模式（用户明确要求时）
+- "快速审一下就行" → 缩减为 2 角色（User Advocate + Pragmatist）
+- 2 角色全 Go → 直接通过，不触发质疑
 
 ## 配置
 
 ### 角色数量可调
 默认 4 角色。如果 plan 很简单（< 3 个 task），可以缩减为 2 角色：
 - User Advocate + Pragmatist（最常用组合）
-
-### 严格模式
-如果任何角色给出 "Needs rework"，自动阻止进入执行阶段，要求先修改 plan。
 
 ### 审查报告位置
 默认写入 plan 同目录：`{plan-dir}/review-report.md`

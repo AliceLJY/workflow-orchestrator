@@ -18,7 +18,7 @@ trigger:
 allowed-tools:
   - All
 metadata:
-  version: "1.0"
+  version: "2.0"
   auto-trigger: false
 ---
 
@@ -152,7 +152,17 @@ Step 5: 等用户做结构映射
 - **方向 C**: [一句话] — 如果你在意 [Z]
 ```
 
-## Step 5: 呈现给用户
+## Step 5: Emit 交接单 + 呈现给用户
+
+```yaml
+handoff:
+  from: ideation-map
+  status: ok
+  artifact: "{project-dir}/ideation-map.md"
+  blockers: []
+  next: brainstorming       # 用户选方向后进入
+  decisions_needed: ["用户选择深挖方向", "用户判断跨域连接"]
+```
 
 主对话只说：
 

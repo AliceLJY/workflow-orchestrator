@@ -49,11 +49,32 @@
 
 **核心规则：** 产出型步骤自动流转，决策型步骤等你拍板。
 
+### v2.0: 阶段交接协议
+
+每个流水线阶段完成时，必须 emit 一份结构化交接单：
+
+```yaml
+handoff:
+  from: writing-plans
+  status: ok              # ok | blocked | rework
+  artifact: docs/plan.md  # 本阶段产物
+  blockers: []            # 未解决的阻塞项
+  next: multi-role-review # 推荐的下一阶段
+  decisions_needed: []    # 需要用户判断的事项
+```
+
+这替代了之前描述性的状态追踪，变成强制协议。没有交接单 = 阶段没完成。配合 RecallNest checkpoint 在每次交接时持久化，流水线状态可以从 compact 和换窗口中恢复。
+
 ## 包含哪些能力
 
 ### 1. 流水线编排层 (`/workflow-orchestrator`)
 
 路由层。解析你的自然语言，判断当前阶段，调度对应能力。支持阶段跳转（"不用构思了，直接规划"）和回溯（"方向不对，重来"）。
+
+**v2.0 新增：**
+- **阶段交接协议** -- 每个阶段必须 emit 结构化交接单，流水线才会推进
+- **下游 Skill 检测** -- 进入阶段前检查依赖的 skill 是否存在，缺失时降级到手动模式
+- **Checkpoint 纪律** -- 每次交接和每次等人之前自动持久化状态
 
 ### 2. 多角色审查 (`/multi-role-review`)
 
@@ -68,7 +89,21 @@
 
 审查完成后，系统交叉比对盲区，提取核心张力——需要你做判断的权衡点。这个模式借鉴了 [content-alchemy](https://github.com/AliceLJY/content-alchemy) 的三方质询设计。
 
-### 3. 可能性地图 (`/ideation-map`)
+**v2.0 新增：**
+- **严格模式默认启用** -- 任一角色 "Needs rework" 自动阻止执行
+- **质量门禁升级** -- 2+ 角色 "Go with concerns" 且有共振问题时也要求用户明确回应
+- **浅审检测** -- 4 角色全 Go 零关注项时触发深度警告
+
+### 3. 计划修订 (`/plan-rework`) *新增*
+
+消费审查报告，按审查意见修订计划。审查和修订职责分离——审查员不改，修订者不审。
+
+- 只提取审查报告中的必改项
+- 修改 plan 并标注每处变更原因
+- 用 2 角色快速验证修改项
+- 最多 1 轮修订，之后升级给用户
+
+### 4. 可能性地图 (`/ideation-map`)
 
 正式研究之前的"元研究"。当你有模糊方向但不确定该深挖什么时，这个能力会：
 
@@ -87,7 +122,9 @@ cd workflow-orchestrator
 bash install.sh
 ```
 
-三个 skill 会被复制到 `~/.claude/skills/`。重启 Claude Code 后生效。
+四个 skill 会被复制到 `~/.claude/skills/`。重启 Claude Code 后生效。
+
+流水线还依赖 `superpowers` 系列的外部 skill。如果缺少，编排层会降级到手动模式，不会卡住。
 
 ## 使用示例
 
@@ -147,9 +184,10 @@ bash install.sh
 
 ```
 skills/
-  multi-role-review/SKILL.md    # 4 角色并行计划审查
-  ideation-map/SKILL.md         # 跨领域可能性地图
   workflow-orchestrator/SKILL.md # 意图识别 + 流水线路由
+  multi-role-review/SKILL.md    # 4 角色并行计划审查
+  plan-rework/SKILL.md          # 审查驱动的计划修订
+  ideation-map/SKILL.md         # 跨领域可能性地图
 install.sh                       # 一键安装脚本
 docs/
   research.md                    # 设计研究笔记
