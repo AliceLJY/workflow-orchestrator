@@ -87,7 +87,7 @@ handoff:
 | **风险猎人** | 什么会出错？安全隐患？依赖风险？ |
 | **务实主义者** | 有更简单的方案吗？是不是 YAGNI 了？ |
 
-审查完成后，系统交叉比对盲区，提取核心张力——需要你做判断的权衡点。这个模式借鉴了 [content-alchemy](https://github.com/AliceLJY/content-alchemy) 的三方质询设计。
+审查完成后，系统交叉比对盲区，提取核心张力——需要你做判断的权衡点。这个模式借鉴了 content-alchemy（已 skill 化，见 `~/.claude/skills/content-alchemy/`）的三方质询设计。
 
 **v2.0 新增：**
 - **严格模式默认启用** -- 任一角色 "Needs rework" 自动阻止执行
@@ -199,7 +199,7 @@ docs/
 本项目与以下项目协同工作：
 
 - [RecallNest](https://github.com/AliceLJY/recallnest) -- 基于 LanceDB 的 Claude Code 长期记忆
-- [content-alchemy](https://github.com/AliceLJY/content-alchemy) -- 多视角审查的内容创作流水线
+- content-alchemy（已 skill 化，见 `~/.claude/skills/content-alchemy/`） -- 多视角审查的内容创作流水线
 
 本项目的多角色审查模式直接借鉴了 content-alchemy 的三方质询设计。RecallNest 提供检查点/恢复能力，让流水线可以跨会话延续。
 
