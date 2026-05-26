@@ -87,7 +87,7 @@ Four independent sub-agents review your plan in parallel, each from a distinct p
 | **Risk Hunter** | What breaks? Security holes? Dependency risks? |
 | **Pragmatist** | Is there a simpler way? YAGNI violations? |
 
-After individual reviews, the system cross-examines for blind spots and extracts core tensions -- the trade-offs that need your judgment. Inspired by the three-perspective cross-examination pattern from [content-alchemy](https://github.com/AliceLJY/content-alchemy).
+After individual reviews, the system cross-examines for blind spots and extracts core tensions -- the trade-offs that need your judgment. Inspired by the three-perspective cross-examination pattern from content-alchemy (now a skill, see `~/.claude/skills/content-alchemy/`).
 
 **v2.0 additions:**
 - **Strict mode is now default** -- any "Needs rework" verdict blocks execution automatically
@@ -199,7 +199,7 @@ docs/
 This project works alongside:
 
 - [RecallNest](https://github.com/AliceLJY/recallnest) -- Long-term memory for Claude Code via LanceDB
-- [content-alchemy](https://github.com/AliceLJY/content-alchemy) -- Content creation pipeline with multi-perspective review
+- content-alchemy (now a skill, see `~/.claude/skills/content-alchemy/`) -- Content creation pipeline with multi-perspective review
 
 The multi-role review pattern in this project was directly inspired by content-alchemy's three-perspective cross-examination. RecallNest provides the checkpoint/resume capability that lets pipelines survive across sessions.
 
