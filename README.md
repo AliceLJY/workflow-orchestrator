@@ -2,6 +2,19 @@
 
 **Natural language pipeline orchestration for Claude Code.**
 
+> [!IMPORTANT]
+> **Status: Design Archive** (April 2026 snapshot, no longer actively maintained).
+>
+> The ideas here proved useful and have since evolved into the author's current workflow in lighter forms:
+>
+> - The **stage handoff contract** lives on in a personal pipeline protocol used across projects.
+> - The **multi-role parallel review** evolved into a triangle of one human plus two mutually-checking AI agents (Claude Code + Codex), with [agent-room-cli](https://github.com/AliceLJY/agent-room-cli) as its runtime.
+> - The **ideation map** survives as an on-demand template.
+>
+> **Honesty note on the headline promise.** "Speak naturally, AI routes every message" requires a prompt-interception hook layer that was planned (`docs/research.md`, P2) but never shipped. What ships here are plain skills: Claude Code loads them by semantically matching skill descriptions, which is probabilistic -- not guaranteed message-level routing. Frontmatter fields like the `trigger:` regexes are aspirational and not consumed by Claude Code.
+>
+> `install.sh` still works, but it installs this archived design as-is and **overwrites same-name skills** in `~/.claude/skills/`. The SKILL.md files remain useful as design references for handoff, review, and orchestration patterns.
+
 Speak naturally. The AI detects your intent and routes you through the right pipeline stage -- from early ideation all the way to shipping and knowledge capture. No slash commands to memorize, no manual stage management.
 
 ## How It Works
@@ -63,11 +76,11 @@ handoff:
   decisions_needed: []    # what needs human judgment
 ```
 
-This replaces the previous descriptive state tracking with an enforced protocol. No handoff = stage not complete. Combined with RecallNest checkpoints at every handoff, pipeline state survives compacts and window switches.
+This replaces the previous descriptive state tracking with an enforced protocol. No handoff = stage not complete. Combined with RecallNest checkpoints at every handoff (requires the separate [RecallNest](https://github.com/AliceLJY/recallnest) MCP -- not bundled here), pipeline state survives compacts and window switches.
 
 ## What's Inside
 
-### 1. Workflow Orchestrator (`/workflow-orchestrator`)
+### 1. Workflow Orchestrator (skill: `workflow-orchestrator`)
 
 The routing layer. Parses your natural language, figures out which pipeline stage you're at, and dispatches the right skill. Handles stage transitions, backtracking ("this direction is wrong"), and skip-ahead ("just start coding, I have a plan").
 
@@ -76,7 +89,7 @@ The routing layer. Parses your natural language, figures out which pipeline stag
 - **Capability Detection** -- checks if downstream skills exist before routing; gracefully falls back to manual mode if missing
 - **Checkpoint discipline** -- persistent state at every handoff and before every human decision point
 
-### 2. Multi-Role Review (`/multi-role-review`)
+### 2. Multi-Role Review (skill: `multi-role-review`)
 
 Four independent sub-agents review your plan in parallel, each from a distinct perspective:
 
@@ -87,14 +100,14 @@ Four independent sub-agents review your plan in parallel, each from a distinct p
 | **Risk Hunter** | What breaks? Security holes? Dependency risks? |
 | **Pragmatist** | Is there a simpler way? YAGNI violations? |
 
-After individual reviews, the system cross-examines for blind spots and extracts core tensions -- the trade-offs that need your judgment. Inspired by the three-perspective cross-examination pattern from content-alchemy (now a skill, see `~/.claude/skills/content-alchemy/`).
+After individual reviews, the system cross-examines for blind spots and extracts core tensions -- the trade-offs that need your judgment. Inspired by the three-perspective cross-examination pattern from the author's content-creation pipeline.
 
 **v2.0 additions:**
 - **Strict mode is now default** -- any "Needs rework" verdict blocks execution automatically
 - **Quality gate escalation** -- 2+ "Go with concerns" with shared issues also requires explicit user response
 - **Shallow review detection** -- all 4 roles saying "Go" with zero concerns triggers a depth warning
 
-### 3. Plan Rework (`/plan-rework`) *NEW*
+### 3. Plan Rework (skill: `plan-rework`) *NEW*
 
 Consumes the review report and revises the plan. Keeps review and revision as separate responsibilities (the reviewer doesn't fix, the fixer doesn't judge).
 
@@ -103,7 +116,7 @@ Consumes the review report and revises the plan. Keeps review and revision as se
 - Runs a lightweight 2-role re-review to verify fixes
 - Maximum 1 rework round, then escalates to human
 
-### 4. Ideation Map (`/ideation-map`)
+### 4. Ideation Map (skill: `ideation-map`)
 
 Meta-research before formal research. When you have a vague direction but don't know what to investigate, this skill:
 
@@ -116,6 +129,8 @@ The premise: AI has knowledge breadth, you have cross-domain intuition. Together
 
 ## Install
 
+> Installs the archived design as-is -- see the status note at the top. Same-name skills in `~/.claude/skills/` will be overwritten.
+
 ```bash
 git clone https://github.com/AliceLJY/workflow-orchestrator.git
 cd workflow-orchestrator
@@ -126,9 +141,9 @@ This copies four skills into `~/.claude/skills/`. Restart Claude Code to activat
 
 The pipeline also depends on external skills from `superpowers`. If any are missing, the orchestrator falls back to manual mode -- it never blocks.
 
-## Usage Examples
+## Usage Examples (design intent)
 
-You don't invoke skills directly. Just talk:
+The flow below is the designed experience. In practice, each hop depends on Claude Code choosing to load the orchestrator skill from its description -- see the status note at the top.
 
 ```
 You:  "I want to build a notification system for my app"
@@ -153,7 +168,7 @@ You:  "Ship it"
   --> Learnings captured automatically
 ```
 
-## Before vs After
+## Before vs After (the goal)
 
 **Before (manual skill management):**
 ```
@@ -174,11 +189,11 @@ You:  "Ship it"
 
 ## Design Principles
 
-- **Zero command vocabulary** -- users never learn slash commands
+- **Zero command vocabulary** (design goal) -- users never learn slash commands; full enforcement needs the hook layer that was never shipped
 - **Context isolation** -- sub-agents get precisely scoped context, not your full conversation history
 - **Human-in-the-loop** -- AI advances production steps automatically, but waits at every decision point
 - **Graceful degradation** -- if a skill is missing, falls back to manual mode instead of blocking
-- **Resumable** -- switch windows mid-pipeline, come back later, pick up where you left off
+- **Resumable** -- switch windows mid-pipeline, come back later, pick up where you left off (via the external RecallNest MCP)
 
 ## Project Structure
 
@@ -196,12 +211,12 @@ docs/
 
 ## Part of the AliceLJY Claude Code Ecosystem
 
-This project works alongside:
+This project sits alongside:
 
-- [RecallNest](https://github.com/AliceLJY/recallnest) -- Long-term memory for Claude Code via LanceDB
-- content-alchemy (now a skill, see `~/.claude/skills/content-alchemy/`) -- Content creation pipeline with multi-perspective review
+- [RecallNest](https://github.com/AliceLJY/recallnest) -- Long-term memory for Claude Code via LanceDB; provides the checkpoint/resume capability the pipeline design relies on
+- [agent-room-cli](https://github.com/AliceLJY/agent-room-cli) -- the tmux room where the successor workflow (one human + two mutually-checking AI agents) runs today
 
-The multi-role review pattern in this project was directly inspired by content-alchemy's three-perspective cross-examination. RecallNest provides the checkpoint/resume capability that lets pipelines survive across sessions.
+The multi-role review pattern here was directly inspired by the three-perspective cross-examination in the author's content-creation pipeline.
 
 ## License
 

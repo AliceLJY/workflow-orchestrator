@@ -2,6 +2,19 @@
 
 **Claude Code 的自然语言流水线编排层。**
 
+> [!IMPORTANT]
+> **状态：设计存档**（2026 年 4 月快照，不再积极维护）。
+>
+> 这里的设计思想被验证有用，并已经以更轻的形态演进到了作者当前的工作流里：
+>
+> - **阶段交接协议**（handoff contract）活在一份跨项目使用的个人流水线协议中。
+> - **多角色并行审查**演进为"一个人 + 两个互相制衡的 AI agent（Claude Code + Codex）"的三角协作，runtime 是 [agent-room-cli](https://github.com/AliceLJY/agent-room-cli)。
+> - **可能性地图**（ideation map）以按需引用的模板形式继续使用。
+>
+> **关于核心承诺的诚实说明。**"说人话，AI 自动路由每句话"需要一个消息级意图拦截的 hook 层——它在设计文档里被规划过（`docs/research.md` 的 P2），但从未实现。本仓库交付的是纯 skill：Claude Code 通过语义匹配 skill description 来决定是否加载，这是概率性的，不是可保证的消息级路由。frontmatter 里的 `trigger:` 正则等字段是设想性的，Claude Code 并不消费它们。
+>
+> `install.sh` 仍然可用，但装入的是这份存档设计的原样副本，且会**覆盖 `~/.claude/skills/` 下的同名 skill**。各 SKILL.md 作为交接、审查、编排模式的设计参考仍有阅读价值。
+
 说人话，AI 自动判断你在哪个阶段，调用对应的能力。从构思到上线，全程不需要记任何斜杠命令。
 
 ## 工作原理
@@ -63,11 +76,11 @@ handoff:
   decisions_needed: []    # 需要用户判断的事项
 ```
 
-这替代了之前描述性的状态追踪，变成强制协议。没有交接单 = 阶段没完成。配合 RecallNest checkpoint 在每次交接时持久化，流水线状态可以从 compact 和换窗口中恢复。
+这替代了之前描述性的状态追踪，变成强制协议。没有交接单 = 阶段没完成。配合 RecallNest checkpoint 在每次交接时持久化（需要单独安装 [RecallNest](https://github.com/AliceLJY/recallnest) MCP，本仓库不含），流水线状态可以从 compact 和换窗口中恢复。
 
 ## 包含哪些能力
 
-### 1. 流水线编排层 (`/workflow-orchestrator`)
+### 1. 流水线编排层（skill: `workflow-orchestrator`）
 
 路由层。解析你的自然语言，判断当前阶段，调度对应能力。支持阶段跳转（"不用构思了，直接规划"）和回溯（"方向不对，重来"）。
 
@@ -76,7 +89,7 @@ handoff:
 - **下游 Skill 检测** -- 进入阶段前检查依赖的 skill 是否存在，缺失时降级到手动模式
 - **Checkpoint 纪律** -- 每次交接和每次等人之前自动持久化状态
 
-### 2. 多角色审查 (`/multi-role-review`)
+### 2. 多角色审查（skill: `multi-role-review`）
 
 4 个独立子 agent 并行审查你的计划，各自关注不同维度：
 
@@ -87,14 +100,14 @@ handoff:
 | **风险猎人** | 什么会出错？安全隐患？依赖风险？ |
 | **务实主义者** | 有更简单的方案吗？是不是 YAGNI 了？ |
 
-审查完成后，系统交叉比对盲区，提取核心张力——需要你做判断的权衡点。这个模式借鉴了 content-alchemy（已 skill 化，见 `~/.claude/skills/content-alchemy/`）的三方质询设计。
+审查完成后，系统交叉比对盲区，提取核心张力——需要你做判断的权衡点。这个模式借鉴了作者内容创作流水线中的三方质询设计。
 
 **v2.0 新增：**
 - **严格模式默认启用** -- 任一角色 "Needs rework" 自动阻止执行
 - **质量门禁升级** -- 2+ 角色 "Go with concerns" 且有共振问题时也要求用户明确回应
 - **浅审检测** -- 4 角色全 Go 零关注项时触发深度警告
 
-### 3. 计划修订 (`/plan-rework`) *新增*
+### 3. 计划修订（skill: `plan-rework`）*新增*
 
 消费审查报告，按审查意见修订计划。审查和修订职责分离——审查员不改，修订者不审。
 
@@ -103,7 +116,7 @@ handoff:
 - 用 2 角色快速验证修改项
 - 最多 1 轮修订，之后升级给用户
 
-### 4. 可能性地图 (`/ideation-map`)
+### 4. 可能性地图（skill: `ideation-map`）
 
 正式研究之前的"元研究"。当你有模糊方向但不确定该深挖什么时，这个能力会：
 
@@ -116,6 +129,8 @@ handoff:
 
 ## 安装
 
+> 装入的是存档设计的原样副本——见顶部状态说明。`~/.claude/skills/` 下同名 skill 会被覆盖。
+
 ```bash
 git clone https://github.com/AliceLJY/workflow-orchestrator.git
 cd workflow-orchestrator
@@ -126,9 +141,9 @@ bash install.sh
 
 流水线还依赖 `superpowers` 系列的外部 skill。如果缺少，编排层会降级到手动模式，不会卡住。
 
-## 使用示例
+## 使用示例（设计意图）
 
-不需要直接调用 skill，直接说话：
+下面是按设计预期的体验。实际使用中，每一跳都取决于 Claude Code 是否根据 description 选择加载编排 skill——见顶部状态说明。
 
 ```
 你：  "我想给 app 做一个通知系统"
@@ -153,7 +168,7 @@ bash install.sh
   --> 经验自动沉淀
 ```
 
-## 使用前 vs 使用后
+## 使用前 vs 使用后（设计目标）
 
 **使用前（手动管理 skill）：**
 ```
@@ -174,11 +189,11 @@ bash install.sh
 
 ## 设计原则
 
-- **零命令记忆** -- 用户永远不需要学斜杠命令
+- **零命令记忆**（设计目标）-- 用户永远不需要学斜杠命令；完整兑现需要那个未实现的 hook 层
 - **上下文隔离** -- 子 agent 拿到精准构造的上下文，不继承完整对话历史
 - **人在回路** -- 产出型步骤自动推进，决策点必须等用户确认
 - **优雅降级** -- 缺少某个 skill 时回退到手动模式，不卡住流程
-- **可恢复** -- 中途切换窗口，回来可以接着做
+- **可恢复** -- 中途切换窗口，回来可以接着做（依赖外部的 RecallNest MCP）
 
 ## 项目结构
 
@@ -196,12 +211,12 @@ docs/
 
 ## AliceLJY Claude Code 生态
 
-本项目与以下项目协同工作：
+本项目所处的生态：
 
-- [RecallNest](https://github.com/AliceLJY/recallnest) -- 基于 LanceDB 的 Claude Code 长期记忆
-- content-alchemy（已 skill 化，见 `~/.claude/skills/content-alchemy/`） -- 多视角审查的内容创作流水线
+- [RecallNest](https://github.com/AliceLJY/recallnest) -- 基于 LanceDB 的 Claude Code 长期记忆；提供流水线设计所依赖的检查点/恢复能力
+- [agent-room-cli](https://github.com/AliceLJY/agent-room-cli) -- 后继工作流（一个人 + 两个互相制衡的 AI agent）如今运行的 tmux 房间
 
-本项目的多角色审查模式直接借鉴了 content-alchemy 的三方质询设计。RecallNest 提供检查点/恢复能力，让流水线可以跨会话延续。
+本项目的多角色审查模式直接借鉴了作者内容创作流水线中的三方质询设计。
 
 ## 许可证
 
