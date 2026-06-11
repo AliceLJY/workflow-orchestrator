@@ -9,7 +9,7 @@ SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "Installing workflow orchestrator skills..."
 echo ""
-echo "NOTE: this installs an archived design (April 2026 snapshot) as-is."
+echo "NOTE: this installs the April 2026 design snapshot as-is."
 echo "      Existing same-name skills in $SKILLS_DIR will be OVERWRITTEN."
 echo ""
 

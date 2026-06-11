@@ -3,19 +3,23 @@
 **Natural language pipeline orchestration for Claude Code.**
 
 > [!IMPORTANT]
-> **Status: Design Archive** (April 2026 snapshot, no longer actively maintained).
->
-> The ideas here proved useful and have since evolved into the author's current workflow in lighter forms:
->
-> - The **stage handoff contract** lives on in a personal pipeline protocol used across projects.
-> - The **multi-role parallel review** evolved into a triangle of one human plus two mutually-checking AI agents (Claude Code + Codex), with [agent-room-cli](https://github.com/AliceLJY/agent-room-cli) as its runtime.
-> - The **ideation map** survives as an on-demand template.
+> **Status: Evolution Record.** This repo is a snapshot of the author's workflow *design thinking*. The ideas are the through-line; the skills are just how they were implemented at the time (April 2026), and implementations keep changing. The original skills have since been retired from the author's own setup -- see the [Design Evolution Log](#design-evolution-log) for where each idea lives now.
 >
 > **Honesty note on the headline promise.** "Speak naturally, AI routes every message" requires a prompt-interception hook layer that was planned (`docs/research.md`, P2) but never shipped. What ships here are plain skills: Claude Code loads them by semantically matching skill descriptions, which is probabilistic -- not guaranteed message-level routing. Frontmatter fields like the `trigger:` regexes are aspirational and not consumed by Claude Code.
 >
-> `install.sh` still works, but it installs this archived design as-is and **overwrites same-name skills** in `~/.claude/skills/`. The SKILL.md files remain useful as design references for handoff, review, and orchestration patterns.
+> `install.sh` still works, but it installs the April 2026 design as-is and **overwrites same-name skills** in `~/.claude/skills/`. The SKILL.md files remain useful as design references for handoff, review, and orchestration patterns.
 
 Speak naturally. The AI detects your intent and routes you through the right pipeline stage -- from early ideation all the way to shipping and knowledge capture. No slash commands to memorize, no manual stage management.
+
+## Design Evolution Log
+
+The workflow design is the through-line of this repo; skill implementations are snapshots. This log tracks how the ideas have moved.
+
+| When | What happened |
+|------|---------------|
+| 2026-04 | v1 shipped: natural-language pipeline routing, 4-role parallel plan review, cross-domain ideation map. v2.0 added stage handoff contracts, capability detection, and quality gates. |
+| 2026-05 | The skills were retired from the author's own setup. The ideas moved on in lighter forms: **stage handoff contract** → a personal pipeline protocol used across projects; **multi-role review** → a triangle of one human plus two mutually-checking AI agents (Claude Code + Codex), with [agent-room-cli](https://github.com/AliceLJY/agent-room-cli) as runtime; **ideation map** → an on-demand template. |
+| 2026-06 | README realigned with reality after a "clinical significance" audit -- judging the project by whether it actually works for its audience, not by whether the code is well-formed. Future workflow shifts will be appended here. |
 
 ## How It Works
 
