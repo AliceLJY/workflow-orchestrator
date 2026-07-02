@@ -3,9 +3,9 @@
 **Natural language pipeline orchestration for Claude Code.**
 
 > [!IMPORTANT]
-> **Status: Evolution Record.** This repo is a snapshot of the author's workflow *design thinking*. The ideas are the through-line; the skills are just how they were implemented at the time (April 2026), and implementations keep changing. The original skills have since been retired from the author's own setup -- see the [Design Evolution Log](#design-evolution-log) for where each idea lives now.
+> **This repo is a record of workflow *design thinking* -- and how it evolved.** The ideas are the through-line: natural-language pipeline routing, four-role parallel plan review, cross-domain ideation mapping. It tracks them from their first implementation (April 2026) to the lighter forms still in service today -- see the [Design Evolution Log](#design-evolution-log) for where each idea lives now.
 >
-> **Honesty note on the headline promise.** "Speak naturally, AI routes every message" requires a prompt-interception hook layer that was planned (`docs/research.md`, P2) but never shipped. What ships here are plain skills: Claude Code loads them by semantically matching skill descriptions, which is probabilistic -- not guaranteed message-level routing. Frontmatter fields like the `trigger:` regexes are aspirational and not consumed by Claude Code.
+> **How to read the skills.** They're a snapshot of that April 2026 implementation, since retired from the author's own setup as the ideas moved on. Two honest caveats on the original design: the headline -- "speak naturally, AI routes every message" -- needed a prompt-interception hook layer that was planned (`docs/research.md`, P2) but never shipped. What ships here are plain skills that Claude Code loads by semantically matching their descriptions, which is probabilistic -- not guaranteed message-level routing (the `trigger:` regexes are aspirational and not consumed by Claude Code).
 >
 > `install.sh` still works, but it installs the April 2026 design as-is and **overwrites same-name skills** in `~/.claude/skills/`. The SKILL.md files remain useful as design references for handoff, review, and orchestration patterns.
 
