@@ -1,19 +1,13 @@
 ---
 name: plan-rework
 description: |
+  Use after a plan review when the user chooses to revise the plan from the report.
+  Apply only required changes, run one lightweight verification, then return control.
   审查报告驱动的 Plan 修订。消费 multi-role-review 的输出，
   针对性修改 plan，然后再过一轮精简 review 验证修改。
   独立于 multi-role-review，保持审查和修订的职责分离。
-measurable_outcome: "修订后的 plan + 验证通过的 review report"
-trigger:
-  - "修改.*plan"
-  - "rework.*plan"
-  - "plan.*改一下"
-  - "按审查意见改"
-allowed-tools:
-  - All
 metadata:
-  version: "1.0"
+  version: "1.1"
   auto-trigger: false
 ---
 
@@ -25,7 +19,7 @@ multi-role-review 说 "Needs rework"？这个 skill 负责**按审查意见修�
 
 ## 什么时候触发
 
-- multi-role-review 交接单 `status=rework` 时**自动触发**
+- multi-role-review 交接单 `status=rework` 后，用户明确选择修订
 - 用户说"按审查意见改一下 plan"
 - 编排层判断需要回溯修改时
 
@@ -94,18 +88,23 @@ Step 4: emit 交接单
 ```yaml
 handoff:
   from: plan-rework
-  status: ok | rework       # 2 角色都 Approved = ok；否则 = rework
+  status: ok | rework | blocked # 2 角色都 Approved = ok；仍有问题 = rework；未完成 = blocked
   artifact: "plan.md"       # 修改后的 plan
-  blockers: []              # ok 时为空；rework 时列出仍未解决的问题
-  next: multi-role-review | execution  # rework → 回完整 review；ok → 等用户确认执行
-  decisions_needed: ["用户确认修改后的 plan"]
+  blockers: []              # 只记录导致本阶段未完成的外部阻塞
+  concerns: []              # rework 时列出仍未解决的问题
+  next: await-user-decision # 本阶段不会自动回到 review 或进入 execution
+  decisions_needed: ["按 status 确认执行、补充缺失条件，或决定再次修改、接受风险、停止"]
+  review_round: 2           # 初始完整 review 为 1，本次精简 re-review 为 2
+  rework_attempt: 1
+  max_rework_attempts: 1
 ```
 
 ## 循环上限
 
 - plan-rework → re-review 最多**1 轮**
 - 如果 re-review 仍然 "Still needs work" → 交接单 status=rework，升级给用户
-- **绝不无限循环**。2 轮（原始 review + 1 轮 rework）后必须人工介入
+- 2 轮（原始 review + 1 次精简 re-review）后必须人工介入
+- `next` 保持 `await-user-decision`；不得自动调用 multi-role-review 或再次调用 plan-rework
 
 ## 反模式
 

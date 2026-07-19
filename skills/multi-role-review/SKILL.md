@@ -1,20 +1,13 @@
 ---
 name: multi-role-review
 description: |
+  Use after an implementation plan is ready and before execution. Dispatch independent
+  review perspectives, combine their findings, and pause for the user's decision.
   Plan 写完后自动触发多角色并行审查。4 个独立视角的子 agent 同时审查 plan，
   交叉发现盲区，汇总为一份精炼结论。用户只看摘要，不被细节淹没。
   复用 content-alchemy 三方质询模式 + dispatching-parallel-agents 并行模式。
-measurable_outcome: "审查报告产出，含 4 角色意见 + 交叉盲区 + 核心张力 + Go/No-Go 建议"
-trigger:
-  - "审查.*plan"
-  - "review.*plan"
-  - "多角色.*审"
-  - "plan.*review"
-  - "检查.*计划"
-allowed-tools:
-  - All
 metadata:
-  version: "2.0"
+  version: "2.1"
   auto-trigger: false
 ---
 
@@ -219,11 +212,15 @@ PROJECT_CONTEXT="<项目关键文件/架构说明>"
 ```yaml
 handoff:
   from: multi-role-review
-  status: ok | rework       # 4 角色全 Go = ok；任一 Needs rework = rework
+  status: ok | rework | blocked # 无 Needs rework = ok；任一 Needs rework = rework；未完成 = blocked
   artifact: "{plan-dir}/review-report.md"
-  blockers: ["问题1", ...]  # status=rework 时列出必须修的问题
-  next: execution | plan-rework  # ok → execution；rework → plan-rework
-  decisions_needed: ["用户确认是否执行"]  # review 结果始终需要用户确认
+  blockers: []              # review 已完成；外部原因导致 review 未完成时才填写
+  concerns: ["问题1", ...]  # Go with concerns / Needs rework 的质量问题
+  next: await-user-decision # review 结果始终需要用户确认
+  decisions_needed: ["按 status 决定执行、进入 plan-rework、补充缺失条件或停止"]
+  review_round: 1
+  rework_attempt: 0
+  max_rework_attempts: 1
 ```
 
 在主对话中只显示**精炼摘要**：
@@ -247,7 +244,7 @@ writing-plans 完成
     ↓ 自动触发
 multi-role-review
     ↓ status=ok → 用户确认 → execution
-    ↓ status=rework → 触发 plan-rework → 再过一轮 review
+    ↓ status=rework → 用户选择修订 → plan-rework → 精简 re-review → 再次等待用户
 ```
 
 ### 独立使用
@@ -258,7 +255,7 @@ multi-role-review
 **严格模式为默认行为**，不需要手动开启：
 
 - **任一角色 "Needs rework"** → 交接单 status=rework，自动阻止进入执行阶段
-- **2+ 角色 "Go with concerns" 且共振问题 > 0** → 交接单标注 blockers，用户必须明确回应后才继续
+- **2+ 角色 "Go with concerns" 且共振问题 > 0** → `status=ok`，问题写入 `concerns`，用户必须明确回应后才继续
 - **4 角色全 Go 且无关注项** → 触发质疑："审查深度可能不够，建议复查"
 - 用户可以说"跳过审查直接干"来 override，但编排层会发出警告
 

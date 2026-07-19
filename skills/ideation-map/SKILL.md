@@ -1,24 +1,14 @@
 ---
 name: ideation-map
 description: |
+  Use when a user has a vague product or engineering direction and needs a broad
+  possibility map before narrowing it into a specification.
   元研究：在正式 research 之前铺开可能性地图。
   AI 用知识广度扫描相关领域/方案/模式，输出结构化地图文件，
   等用户用第一性原理做跨域结构映射，再决定深挖方向。
   设计目标：补足用户知识广度，激发用户泛化能力。
-measurable_outcome: "ideation-map.md 产出，含 3+ 领域扫描 + 可借鉴模式 + 等待用户判断的连接点"
-trigger:
-  - "我想做.*"
-  - "有个想法"
-  - "帮我想想"
-  - "可以怎么做"
-  - "有什么方向"
-  - "元研究"
-  - "ideate"
-  - "可能性"
-allowed-tools:
-  - All
 metadata:
-  version: "2.0"
+  version: "2.1"
   auto-trigger: false
 ---
 
@@ -43,7 +33,7 @@ metadata:
 | **输出** | 可能性地图文件 | 设计文档 |
 | **用户角色** | 做跨域连接、选方向 | 回答细化问题、确认设计 |
 | **深度** | 广而浅 | 窄而深 |
-| **后续** | → brainstorming 或 → research | → writing-plans |
+| **后续** | → brainstorming；信息不足时先补一次定向扫描 | → writing-plans |
 
 ## 执行流程
 
@@ -60,7 +50,7 @@ Step 4: 产出可能性地图文件
     ↓
 Step 5: 等用户做结构映射
     ↓
-用户选择方向 → 进入 brainstorming 或 research
+用户选择方向 → 进入 brainstorming；信息不足时先更新地图
 ```
 
 ## Step 1: 理解原始意图
@@ -88,7 +78,7 @@ Step 5: 等用户做结构映射
 ### 扫描深度控制
 
 每个维度：**2-3 句话概述 + 1 个关键 insight**。不展开，只勾勒轮廓。
-用户看完觉得某个方向有意思，再在 brainstorming/research 里深挖。
+用户看完觉得某个方向有意思，再在 brainstorming 里细化；缺信息时先做一次定向补充扫描。
 
 ## Step 3: 模式提取
 
@@ -160,8 +150,12 @@ handoff:
   status: ok
   artifact: "{project-dir}/ideation-map.md"
   blockers: []
+  concerns: []
   next: brainstorming       # 用户选方向后进入
   decisions_needed: ["用户选择深挖方向", "用户判断跨域连接"]
+  review_round: 0
+  rework_attempt: 0
+  max_rework_attempts: 1
 ```
 
 主对话只说：
@@ -182,7 +176,7 @@ handoff:
 
 - 用户选了方向 → 进入 `brainstorming`（细化为 spec）
 - 用户发现了跨域连接 → 更新 ideation-map，可能再扫一轮
-- 用户说"需要更多信息" → 进入 `research`（深度研究某个维度）
+- 用户说"需要更多信息" → 对选定维度做一次定向扫描，更新 ideation-map，再等待选择
 - 用户说"我再想想" → 存到 RecallNest，下次继续
 
 ## 与流水线的集成
@@ -192,7 +186,7 @@ handoff:
     ↓ 编排层判断：探索阶段
 ideation-map（铺可能性）
     ↓ 用户选方向
-brainstorming（细化 spec）或 research（深挖某维度）
+brainstorming（细化 spec；缺信息时先更新地图）
     ↓
 writing-plans → multi-role-review → execution ...
 ```

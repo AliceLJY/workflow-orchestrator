@@ -5,9 +5,9 @@
 > [!IMPORTANT]
 > **This repo is a record of workflow *design thinking* -- and how it evolved.** The ideas are the through-line: natural-language pipeline routing, four-role parallel plan review, cross-domain ideation mapping. It tracks them from their first implementation (April 2026) to the lighter forms still in service today -- see the [Design Evolution Log](#design-evolution-log) for where each idea lives now.
 >
-> **How to read the skills.** They're a snapshot of that April 2026 implementation, since retired from the author's own setup as the ideas moved on. Two honest caveats on the original design: the headline -- "speak naturally, AI routes every message" -- needed a prompt-interception hook layer that was planned (`docs/research.md`, P2) but never shipped. What ships here are plain skills that Claude Code loads by semantically matching their descriptions, which is probabilistic -- not guaranteed message-level routing (the `trigger:` regexes are aspirational and not consumed by Claude Code).
+> **How to read the skills.** They're a snapshot of that April 2026 implementation, since retired from the author's own setup as the ideas moved on. Two honest caveats on the original design: the headline -- "speak naturally, AI routes every message" -- needed a prompt-interception hook layer that was planned (`docs/research.md`, P2) but never shipped. What ships here are plain skills that Claude Code loads by semantically matching their descriptions, which is probabilistic -- not guaranteed message-level routing. The old aspirational `trigger:` regexes were removed because Claude Code did not consume them.
 >
-> `install.sh` still works, but it installs the April 2026 design as-is and **overwrites same-name skills** in `~/.claude/skills/`. The SKILL.md files remain useful as design references for handoff, review, and orchestration patterns.
+> `install.sh` still works. It installs the maintained April 2026 design snapshot and asks before replacing same-name skills in `~/.claude/skills/`; unattended installs must pass `--force`. The SKILL.md files remain useful as design references for handoff, review, and orchestration patterns.
 
 Speak naturally. The AI detects your intent and routes you through the right pipeline stage -- from early ideation all the way to shipping and knowledge capture. No slash commands to memorize, no manual stage management.
 
@@ -20,6 +20,7 @@ The workflow design is the through-line of this repo; skill implementations are 
 | 2026-04 | v1 shipped: natural-language pipeline routing, 4-role parallel plan review, cross-domain ideation map. v2.0 added stage handoff contracts, capability detection, and quality gates. |
 | 2026-05 | The skills were retired from the author's own setup. The ideas moved on in lighter forms: **stage handoff contract** → a personal pipeline protocol used across projects; **multi-role review** → a triangle of one human plus two mutually-checking AI agents (Claude Code + Codex), with [agent-room-cli](https://github.com/AliceLJY/agent-room-cli) as runtime; **ideation map** → an on-demand template. |
 | 2026-06 | README realigned with reality after a "clinical significance" audit -- judging the project by whether it actually works for its audience, not by whether the code is well-formed. Future workflow shifts will be appended here. |
+| 2026-07 | The archived contracts were repaired: review and rework now stop at an explicit user-decision state, round counters cap rework, concerns are distinct from external blockers, and installation no longer overwrites silently. |
 
 ## How It Works
 
@@ -57,7 +58,6 @@ You say: "I have an idea for a caching layer"
 | Stage | What Happens | Trigger |
 |-------|-------------|---------|
 | **Ideate** | Scan possibility space across domains, output a map of directions | "I want to build..." / "I have an idea" |
-| **Research** | Deep-dive into selected direction | User picks a direction from the map |
 | **Plan** | Turn spec into implementation steps | "Let's plan this out" |
 | **Review** | 4 parallel sub-agents challenge the plan from different angles | Auto after planning |
 | **Execute** | Parallel sub-agents implement the plan | User confirms after review |
@@ -75,12 +75,18 @@ handoff:
   from: writing-plans
   status: ok              # ok | blocked | rework
   artifact: docs/plan.md  # what was produced
-  blockers: []            # what's unresolved
+  blockers: []            # external issues that prevented this stage from finishing
+  concerns: []            # quality issues in a completed artifact
   next: multi-role-review # recommended next stage
   decisions_needed: []    # what needs human judgment
+  review_round: 0         # increments for review and lightweight re-review
+  rework_attempt: 0       # plan-rework attempts already used
+  max_rework_attempts: 1  # workflow cap before returning control to the user
 ```
 
 This replaces the previous descriptive state tracking with an enforced protocol. No handoff = stage not complete. Combined with RecallNest checkpoints at every handoff (requires the separate [RecallNest](https://github.com/AliceLJY/recallnest) MCP -- not bundled here), pipeline state survives compacts and window switches.
+
+`blocked` means the current stage could not finish because an input, permission, dependency, or external service is unavailable. Review findings belong in `concerns`; `rework` means the review finished but the artifact must change before execution. `await-user-decision` is a waiting state, not another automatically dispatched stage.
 
 ## What's Inside
 
@@ -118,11 +124,11 @@ Consumes the review report and revises the plan. Keeps review and revision as se
 - Extracts only the must-fix items from the review report
 - Modifies the plan with annotated changes
 - Runs a lightweight 2-role re-review to verify fixes
-- Maximum 1 rework round, then escalates to human
+- Returns to the user after at most 1 rework attempt; it does not invoke the full review again automatically
 
 ### 4. Ideation Map (skill: `ideation-map`)
 
-Meta-research before formal research. When you have a vague direction but don't know what to investigate, this skill:
+Broad exploration before a specification. When you have a vague direction but don't know what to investigate, this skill:
 
 1. Scans 3-5 related domains, existing solutions, and adjacent fields
 2. Extracts cross-domain patterns that might apply
@@ -133,7 +139,7 @@ The premise: AI has knowledge breadth, you have cross-domain intuition. Together
 
 ## Install
 
-> Installs the archived design as-is -- see the status note at the top. Same-name skills in `~/.claude/skills/` will be overwritten.
+> Installs the maintained archive snapshot -- see the status note at the top. Existing same-name skills require confirmation.
 
 ```bash
 git clone https://github.com/AliceLJY/workflow-orchestrator.git
@@ -142,6 +148,14 @@ bash install.sh
 ```
 
 This copies four skills into `~/.claude/skills/`. Restart Claude Code to activate.
+
+For unattended installation, make overwrite intent explicit:
+
+```bash
+bash install.sh --force
+```
+
+Use `--skills-dir PATH` to install into a different skill directory.
 
 The pipeline also depends on external skills from `superpowers`. If any are missing, the orchestrator falls back to manual mode -- it never blocks.
 

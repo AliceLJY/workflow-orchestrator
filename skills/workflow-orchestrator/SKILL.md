@@ -1,17 +1,14 @@
 ---
 name: workflow-orchestrator
 description: |
+  Use when a user wants a development workflow routed from natural-language intent,
+  including ideation, planning, review, execution, shipping, and knowledge capture.
   自然语言驱动的开发流水线编排层。用户说人话，自动识别意图，
   调度对应阶段的 skill 执行。用户不需要记任何斜杠命令。
   串联：ideation-map → brainstorming → writing-plans → multi-role-review →
   subagent-driven-development → requesting-code-review → finishing → compound
-measurable_outcome: "用户一句话触发完整流水线，全程无需手动调用任何 skill"
-trigger:
-  - ".*"
-allowed-tools:
-  - All
 metadata:
-  version: "2.0"
+  version: "2.1"
   auto-trigger: false
 ---
 
@@ -47,10 +44,22 @@ handoff:
   from: <当前阶段名>          # e.g. "writing-plans"
   status: ok | blocked | rework  # 阶段结果
   artifact: <产物文件路径>      # e.g. "docs/plan.md"
-  blockers: []                  # 未解决的阻塞项（空 = 无阻塞）
+  blockers: []                  # 阶段无法完成的外部阻塞（空 = 阶段已完成）
+  concerns: []                  # 已完成产物的质量问题或风险
   next: <推荐的下一阶段>        # e.g. "multi-role-review"
   decisions_needed: []          # 需要用户做的决策（空 = 可自动推进）
+  review_round: 0               # 未进入 review 时为 0；每次 review 递增
+  rework_attempt: 0             # plan-rework 次数
+  max_rework_attempts: 1        # 流程允许的修订上限
 ```
+
+### 状态与问题字段
+
+- `ok`：当前阶段已完成且产物通过本阶段门禁。
+- `rework`：当前阶段已完成，但产物必须修改后才能执行。
+- `blocked`：当前阶段因缺少输入、权限、依赖或外部服务而无法完成。
+- `blockers` 只记录让**当前阶段无法完成**的事项；审查发现的质量问题写入 `concerns`。
+- `next: await-user-decision` 是等待状态，不是可自动调度的阶段。收到用户明确选择后，再写入真正的下一阶段。
 
 ### 各阶段交接规则
 
@@ -59,7 +68,7 @@ handoff:
 | ideation-map | `ideation-map.md` | — | 用户选方向 |
 | brainstorming | spec 文档 | — | 用户确认 spec |
 | writing-plans | `plan.md` | status=ok → auto multi-role-review | — |
-| multi-role-review | `review-report.md` | — | 用户看完决定 |
+| multi-role-review | `review-report.md` | — | 用户决定执行或修订 |
 | execution | 代码文件 | status=ok → auto code-review | status=blocked → 报告用户 |
 | code-review | review 报告 | status=ok → auto finishing | status=rework → 用户决定 |
 | finishing | merge/tag | status=ok → auto compound | — |
@@ -118,7 +127,7 @@ handoff:
 
 ## 自动流转 vs 人工确认
 
-### 自动流转（交接单 status=ok 且 decisions_needed 为空）
+### 自动流转（交接单 status=ok、blockers 为空且 decisions_needed 为空）
 - writing-plans → multi-role-review
 - execution → code-review
 - finishing → compound
@@ -141,9 +150,12 @@ handoff:
 - "我有现成的 plan" → 从 multi-role-review 开始
 
 ### 回溯（交接单 status=rework 时）
-- multi-role-review → 回到 writing-plans（自动触发 plan-rework）
+- multi-role-review → `await-user-decision`；用户选择修订后进入 plan-rework
+- plan-rework 完成一次精简 re-review 后 → `await-user-decision`，不再自动回到 multi-role-review
 - code-review 发现架构问题 → 回到 plan 层面
 - 用户说"方向不对" → 回到 ideation-map
+
+`rework_attempt >= max_rework_attempts` 时不得自动再次修订或复审，必须等待用户选择。
 
 ---
 
